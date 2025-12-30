@@ -92,7 +92,9 @@ class DatabaseConnection:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(query, params)
                 if fetch:
-                    return cursor.fetchall()
+                    result = cursor.fetchall()
+                    conn.commit()  # Commit even when fetching (e.g., RETURNING clause)
+                    return result
                 conn.commit()
                 return None
         except Exception as e:

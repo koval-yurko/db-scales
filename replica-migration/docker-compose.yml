@@ -51,8 +51,9 @@ services:
       - ./data/replica:/var/lib/postgresql/data
       - ./postgresql/replica/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./postgresql/replica/pg_hba.conf:/etc/postgresql/pg_hba.conf
-      - ./postgresql/replica/init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh
+      - ./postgresql/replica/entrypoint.sh:/usr/local/bin/custom-entrypoint.sh
       - ./logs/replica:/var/log/postgresql
+    entrypoint: ["/usr/local/bin/custom-entrypoint.sh"]
     command:
       - "postgres"
       - "-c"

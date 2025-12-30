@@ -11,12 +11,7 @@ from pathlib import Path
 from db_config import PRIMARY_CONFIG, REPLICA_CONFIG
 from db_config import REPLICATION_LAG_THRESHOLD_BYTES, REPLICATION_LAG_THRESHOLD_SECONDS
 from db_connection import DatabaseConnection
-
-# Import monitor for metrics collection
-try:
-    from monitor_replication import ReplicationMonitor
-except ImportError:
-    from scripts.monitor_replication import ReplicationMonitor
+from utils import ReplicationMonitor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -216,7 +211,7 @@ class CutoverOrchestrator:
             # Try a test write
             test_query = """
             INSERT INTO audit_log (table_name, record_id, action, changed_data)
-            VALUES ('cutover_test', 0, 'CUTOVER_VALIDATION', '{"timestamp": "' || NOW()::text || '"}')
+            VALUES ('cutover_test', 0, 'CUTOVER_VALIDATION', ('{"timestamp": "' || NOW()::text || '"}')::jsonb)
             """
 
             if self.dry_run:
