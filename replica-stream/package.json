@@ -1,0 +1,24 @@
+{
+  "name": "postgresql-logical-replication",
+  "version": "1.0.0",
+  "description": "PostgreSQL Logical Replication example with Node.js subscriber",
+  "main": "start-copy.js",
+  "scripts": {
+    "setup": "node setup-data.js",
+    "start": "node start-copy.js"
+  },
+  "keywords": [
+    "postgresql",
+    "logical-replication",
+    "pgoutput",
+    "replication-slot",
+    "wal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "pg-logical-replication": "^1.0.3"
+  }
+}

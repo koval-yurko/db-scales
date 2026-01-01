@@ -5,10 +5,11 @@ Create a complete example of PostgreSQL Logical Replication with a Node.js subsc
 
 ## Requirements Summary
 - **Replication Type**: Logical Replication (Publication/Subscription)
-- **Technology**: Node.js with `pg` (node-postgres) library
+- **Technology**: Node.js with `pg` (node-postgres) library and `pg-logical-replication` for decoding
 - **Acknowledge Mechanism**: Replication slot with feedback to confirm processed LSN positions
-- **Scope**: Node.js code only (assumes PostgreSQL is already running)
+- **Scope**: Node.js code with Docker Compose for PostgreSQL
 - **Key Feature**: Ability to mark replication as done or retry failed events
+- **Data Coverage**: Replicates ALL data including existing rows (by creating slot before data insertion)
 
 ## File Structure
 
@@ -66,24 +67,53 @@ node_modules/
 
 Create tables and populate with sample data:
 - Create sample tables: `users`, `orders`, `products`
-- Insert sample data for testing (e.g., 10 users, 20 orders)
+- Insert sample data for testing (e.g., 10 users, 8 products, 20 orders)
 - Create indexes for performance
-- No replication setup in this file - pure data structure
+- **IMPORTANT**: This file contains only table creation and data insertion - no replication setup
 
-#### Part B: Replication Configuration
-**File**: `replica-stream/scripts/02_setup_replication.sql`
+#### Part B: WAL Configuration
+**File**: `replica-stream/scripts/02_configure_wal.sql`
 
-Configure logical replication:
-- **Configure PostgreSQL for logical replication**:
-  - `ALTER SYSTEM SET wal_level = 'logical';`
-  - `ALTER SYSTEM SET max_replication_slots = 4;`
-  - `ALTER SYSTEM SET max_wal_senders = 4;`
-  - Note: Requires PostgreSQL restart after these changes
-- Verify configuration: `SHOW wal_level;`
-- Create publication for tables: `CREATE PUBLICATION my_pub FOR TABLE users, orders, products;`
-- Create replication slot: `SELECT pg_create_logical_replication_slot('my_slot', 'pgoutput');`
-- Create checkpoint tracking table: `replication_checkpoints (slot_name, last_lsn, last_processed_at, status)`
-- Grant necessary permissions
+Configure PostgreSQL WAL for logical replication:
+- `ALTER SYSTEM SET wal_level = 'logical';`
+- `ALTER SYSTEM SET max_replication_slots = 4;`
+- `ALTER SYSTEM SET max_wal_senders = 4;`
+- **Note**: Requires PostgreSQL restart to apply
+
+#### Part C: Checkpoint Table
+**File**: `replica-stream/scripts/00_create_checkpoint.sql`
+
+Create checkpoint tracking before restart:
+- `CREATE TABLE replication_checkpoints (...)`
+- Initialize with LSN `0/0`
+- **Can be created before restart** (doesn't require `wal_level=logical`)
+
+#### Part D: Replication Setup (Done in JavaScript)
+**File**: `start-copy.js` - `createPublicationAndSlot()`
+
+Create publication and slot (after WAL config + restart):
+- Create publication: `CREATE PUBLICATION my_pub FOR TABLE users, orders, products;`
+- Create replication slot: `SELECT pg_create_logical_replication_slot('my_slot', 'test_decoding');`
+- **Must execute in separate transactions** (PostgreSQL restriction)
+- Uses `test_decoding` plugin (compatible with `pg-logical-replication` library)
+
+## Critical Setup Order for Full Data Replication
+
+**To replicate ALL data including existing rows:**
+
+1. **Configure WAL settings** → `node start-copy.js` (first run)
+2. **Restart PostgreSQL** → `docker-compose restart`
+3. **Create replication slot BEFORE data** → `node setup-data.js`
+   - Checks if `wal_level=logical`
+   - Creates slot BEFORE executing INSERT statements
+   - This captures all data insertions in WAL
+4. **Start subscriber** → `node start-copy.js` (second run)
+   - Streams all 38 INSERTs (10 users + 8 products + 20 orders)
+
+**Why this order matters:**
+- Logical replication slots only capture changes **after** slot creation
+- If data exists before slot creation, it won't be replicated
+- Creating slot before INSERT ensures everything is captured in WAL
 
 ### 3. Node.js Dependencies (package.json)
 **File**: `replica-stream/package.json`
