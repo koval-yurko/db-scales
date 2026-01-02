@@ -22,39 +22,9 @@ async function setupData() {
     const walLevel = walCheck.rows[0].wal_level;
 
     if (walLevel === 'logical') {
-      console.log('✓ WAL level is already set to logical');
-
-      // Create replication slot BEFORE inserting data
-      console.log('\nCreating replication slot before data insertion...');
-      const slotCheck = await client.query(
-        "SELECT 1 FROM pg_replication_slots WHERE slot_name = 'my_slot'"
-      );
-
-      if (slotCheck.rows.length === 0) {
-        await client.query(
-          "SELECT pg_create_logical_replication_slot('my_slot', 'test_decoding')"
-        );
-        console.log('✓ Replication slot created');
-      } else {
-        console.log('✓ Replication slot already exists');
-      }
-
-      // Create publication
-      const pubCheck = await client.query(
-        "SELECT 1 FROM pg_publication WHERE pubname = 'my_pub'"
-      );
-
-      if (pubCheck.rows.length === 0) {
-        await client.query(
-          "CREATE PUBLICATION my_pub FOR ALL TABLES"
-        );
-        console.log('✓ Publication created for all tables');
-      } else {
-        console.log('✓ Publication already exists');
-      }
+      console.log('✓ WAL level is set to logical');
     } else {
-      console.log(`⚠ WAL level is '${walLevel}' (needs to be 'logical')`);
-      console.log('Replication slot will be created after WAL configuration\n');
+      console.log(`⚠ WAL level is '${walLevel}' (will be configured to 'logical' by start-copy.js)`);
     }
 
     // Read and execute setup SQL
@@ -65,18 +35,15 @@ async function setupData() {
     await client.query(sql);
 
     console.log('\n✓ Database setup completed successfully!');
-
-    if (walLevel === 'logical') {
-      console.log('\n✓ Replication slot was created BEFORE data insertion');
-      console.log('✓ All inserted data will be captured in the replication stream\n');
-      console.log('Next step:');
-      console.log('  Run: node start-copy.js (to start replication subscriber)\n');
-    } else {
-      console.log('\nNext steps:');
-      console.log('1. Run: node start-copy.js');
+    console.log('\nNext steps:');
+    console.log('1. Run: node start-copy.js');
+    if (walLevel !== 'logical') {
       console.log('2. If prompted, restart PostgreSQL: docker-compose restart');
-      console.log('3. Run: node start-copy.js again to start replication\n');
+      console.log('3. Run: node start-copy.js again to start full database replication');
+    } else {
+      console.log('2. The subscriber will perform initial table copy and then start replication');
     }
+    console.log();
   } catch (error) {
     console.error('Error setting up database:', error.message);
     process.exit(1);

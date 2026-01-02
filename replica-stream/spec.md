@@ -1,15 +1,20 @@
 # Implementation Plan: PostgreSQL Logical Replication with Node.js Subscriber
 
 ## Overview
-Create a complete example of PostgreSQL Logical Replication with a Node.js subscriber process in the `replica-stream/` folder. The subscriber will process database changes and use replication slot feedback for acknowledgment.
+Create a complete example of PostgreSQL Logical Replication with a Node.js subscriber process in the `replica-stream/` folder. The subscriber will replicate the entire database to another system, including initial data copy and continuous change capture.
 
 ## Requirements Summary
 - **Replication Type**: Logical Replication (Publication/Subscription)
 - **Technology**: Node.js with `pg` (node-postgres) library and `pg-logical-replication` for decoding
 - **Acknowledge Mechanism**: Replication slot with feedback to confirm processed LSN positions
 - **Scope**: Node.js code with Docker Compose for PostgreSQL
-- **Key Feature**: Ability to mark replication as done or retry failed events
-- **Data Coverage**: Replicates ALL data including existing rows (by creating slot before data insertion)
+- **Key Features**:
+  - Full database replication (initial copy + continuous changes)
+  - Initial table copy phase to transfer existing data
+  - Capture changes that occur during the copy process
+  - Detect when databases are in sync and notify
+  - Ability to mark replication as done or retry failed events
+- **Data Coverage**: Replicates ALL data including existing rows via initial table copy
 
 ## File Structure
 
@@ -97,23 +102,33 @@ Create publication and slot (after WAL config + restart):
 - **Must execute in separate transactions** (PostgreSQL restriction)
 - Uses `test_decoding` plugin (compatible with `pg-logical-replication` library)
 
-## Critical Setup Order for Full Data Replication
+## Critical Replication Flow for Full Database Copy
 
-**To replicate ALL data including existing rows:**
+**To replicate the entire database to another system:**
 
 1. **Configure WAL settings** → `node start-copy.js` (first run)
 2. **Restart PostgreSQL** → `docker-compose restart`
-3. **Create replication slot BEFORE data** → `node setup-data.js`
-   - Checks if `wal_level=logical`
-   - Creates slot BEFORE executing INSERT statements
-   - This captures all data insertions in WAL
-4. **Start subscriber** → `node start-copy.js` (second run)
-   - Streams all 38 INSERTs (10 users + 8 products + 20 orders)
+3. **Seed source database** → `node setup-data.js`
+   - Creates tables and inserts sample data into source database
+4. **Start replication** → `node start-copy.js` (second run)
+   - **Phase 1: Create Replication Slot**
+     - Creates replication slot to capture ongoing changes
+   - **Phase 2: Initial Table Copy**
+     - Performs full table copy of existing data
+     - Copies all rows from source tables to target system
+     - Changes during copy are captured by replication slot
+   - **Phase 3: Apply Replicated Changes**
+     - Processes changes that occurred during the copy
+     - Continues processing ongoing changes
+   - **Phase 4: Sync Notification**
+     - Detects when replication lag reaches zero
+     - Notifies that databases are in sync
 
-**Why this order matters:**
-- Logical replication slots only capture changes **after** slot creation
-- If data exists before slot creation, it won't be replicated
-- Creating slot before INSERT ensures everything is captured in WAL
+**Why this approach:**
+- **Replication slot created first**: Captures all changes during the initial copy
+- **Initial copy**: Transfers existing data efficiently (bulk copy vs individual INSERTs)
+- **Continuous replication**: Applies changes that happened during copy and keeps databases in sync
+- **Lag detection**: Monitors when target catches up to source
 
 ### 3. Node.js Dependencies (package.json)
 **File**: `replica-stream/package.json`

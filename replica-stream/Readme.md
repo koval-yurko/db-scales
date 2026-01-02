@@ -5,9 +5,12 @@ A complete example demonstrating PostgreSQL Logical Replication with a Node.js s
 ## Overview
 
 This example shows how to:
-- Set up PostgreSQL logical replication (Publication/Subscription model)
-- Subscribe to database changes using Node.js
+- Replicate an entire PostgreSQL database to another system
+- Perform initial table copy of all existing data
+- Capture and apply changes that occur during the copy process
+- Subscribe to database changes using Node.js logical replication
 - Process INSERT, UPDATE, and DELETE events in real-time
+- Detect when databases are in sync and notify
 - Implement checkpoint mechanism for resumable processing
 - Use replication slot feedback to prevent WAL accumulation
 - Handle failed events with automatic retry on restart
@@ -199,12 +202,25 @@ node start-copy.js
    ```
 3. **Creates replication slot** (separate transaction):
    ```sql
-   SELECT pg_create_logical_replication_slot('my_slot', 'pgoutput');
+   SELECT pg_create_logical_replication_slot('my_slot', 'test_decoding');
    ```
-4. **Starts subscriber:**
+
+4. **Phase 1: Initial Table Copy**
+   - Performs full table copy of existing data from source database
+   - Copies all rows from `users`, `products`, and `orders` tables
+   - Displays progress for each table
+   - Any changes during this copy are captured by the replication slot
+
+5. **Phase 2: Continuous Replication**
    - Connects to replication stream
-   - Subscribes to slot `my_slot` starting from last checkpoint (`0/0`)
-   - Begins processing changes in real-time
+   - Subscribes to slot `my_slot` starting from creation time
+   - Processes changes that occurred during the initial copy
+   - Continues processing ongoing changes in real-time
+
+6. **Sync Notification**
+   - Monitors replication lag
+   - When lag reaches 0 bytes, displays "DATABASES ARE IN SYNC!" message
+   - Continues monitoring for new changes
 
 **Why separate transactions?** PostgreSQL doesn't allow creating a replication slot in a transaction that has performed writes. Each `client.query()` executes in its own transaction.
 
