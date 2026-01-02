@@ -121,7 +121,7 @@ async function createPublicationAndSlot() {
       DO $$
       BEGIN
           IF NOT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = 'my_slot') THEN
-              PERFORM pg_create_logical_replication_slot('my_slot', 'test_decoding');
+              PERFORM pg_create_logical_replication_slot('my_slot', 'pgoutput');
               RAISE NOTICE 'Replication slot "my_slot" created';
           ELSE
               RAISE NOTICE 'Replication slot "my_slot" already exists';

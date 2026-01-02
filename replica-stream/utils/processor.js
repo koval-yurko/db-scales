@@ -33,23 +33,21 @@ class EventProcessor {
 
   async processEvent(event) {
     try {
-      const { tag, relation, new: newTuple, old: oldTuple } = event;
+      const { tag, table, new: newData, old: oldData } = event;
 
-      if (!relation) {
+      if (!table) {
         return { success: true, skipped: true };
       }
 
-      const tableName = relation.tag.name;
-
       switch (tag) {
         case 'insert':
-          return await this.processInsert(tableName, newTuple);
+          return await this.processInsert(table, newData);
 
         case 'update':
-          return await this.processUpdate(tableName, oldTuple, newTuple);
+          return await this.processUpdate(table, oldData, newData);
 
         case 'delete':
-          return await this.processDelete(tableName, oldTuple);
+          return await this.processDelete(table, oldData);
 
         default:
           console.log(`[UNKNOWN] Event type: ${tag}`);
@@ -57,6 +55,7 @@ class EventProcessor {
       }
     } catch (error) {
       console.error('Error processing event:', error.message);
+      console.error('Event details:', JSON.stringify(event, null, 2));
       return {
         success: false,
         error: error.message,

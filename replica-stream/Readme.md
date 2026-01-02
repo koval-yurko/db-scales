@@ -77,7 +77,12 @@ docker-compose restart
 
 # 7. Start replication subscriber (second run)
 node start-copy.js
+
+# 8. (Optional) In another terminal, simulate database activity
+node simulate-activity.js 1000 60
 ```
+
+The subscriber will perform an initial copy of all existing data, then continuously replicate changes. When you run the activity simulator, you'll see all operations being replicated in real-time!
 
 ### Detailed Setup Steps
 
@@ -234,9 +239,43 @@ In the terminal running `start-copy.js`, you'll see:
 - Checkpoint saves (LSN positions)
 - Processing statistics
 
-### Make Changes
+### Simulate Database Activity
 
-Open a new terminal and connect to PostgreSQL:
+To test replication with realistic database activity, use the activity simulator script:
+
+```bash
+# Run with default settings (2 second interval, indefinite)
+node simulate-activity.js
+
+# Run with 1 second interval, indefinite
+node simulate-activity.js 1000
+
+# Run with 1 second interval for 60 seconds
+node simulate-activity.js 1000 60
+
+# Run with 0.5 second interval for 30 seconds
+node simulate-activity.js 500 30
+```
+
+**What it does:**
+- Randomly performs INSERT, UPDATE, and DELETE operations
+- 25% inserts (users, products, orders)
+- 45% updates (users, products, orders)
+- 30% deletes (orders only)
+- Displays statistics on shutdown
+
+**Usage:**
+```bash
+node simulate-activity.js [interval_ms] [duration_seconds]
+
+# Press Ctrl+C to stop and see statistics
+```
+
+You'll see all changes immediately processed in the replication subscriber terminal.
+
+### Make Manual Changes
+
+You can also make manual changes via SQL:
 
 ```bash
 # Connect to PostgreSQL
@@ -255,8 +294,6 @@ DELETE FROM users WHERE username = 'bob';
 INSERT INTO orders (user_id, product_id, quantity, total_price, status)
 VALUES (1, 1, 1, 999.99, 'pending');
 ```
-
-You'll immediately see these changes processed in the subscriber terminal.
 
 ### Stop Replication
 
@@ -390,6 +427,7 @@ replica-stream/
 ├── .gitignore                      # Git ignore rules
 ├── setup-data.js                   # Data seeding script
 ├── start-copy.js                   # Replication starter and orchestrator
+├── simulate-activity.js            # Database activity simulator
 ├── scripts/
 │   ├── 00_create_checkpoint.sql   # Create checkpoint tracking table
 │   ├── 01_setup_tables.sql        # Create tables and sample data
@@ -398,7 +436,8 @@ replica-stream/
 │   ├── config.js                  # Configuration loader
 │   ├── subscriber.js              # Replication subscriber
 │   ├── processor.js               # Event processor
-│   └── checkpoint.js              # LSN tracking and feedback
+│   ├── checkpoint.js              # LSN tracking and feedback
+│   └── table-copier.js            # Initial table copy utility
 └── README.md                       # This file
 ```
 

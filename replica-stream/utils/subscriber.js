@@ -1,5 +1,5 @@
 const { Client } = require('pg');
-const LogicalReplication = require('pg-logical-replication');
+const { LogicalReplicationService, PgoutputPlugin } = require('pg-logical-replication');
 const config = require('./config');
 const CheckpointManager = require('./checkpoint');
 const EventProcessor = require('./processor');
@@ -8,8 +8,7 @@ const TableCopier = require('./table-copier');
 class ReplicationSubscriber {
   constructor() {
     this.client = null;
-    this.stream = null;
-    this.plugin = null;
+    this.service = null;
     this.checkpointManager = null;
     this.eventProcessor = null;
     this.tableCopier = null;
@@ -43,9 +42,6 @@ class ReplicationSubscriber {
     // Load last checkpoint
     this.currentLsn = await this.checkpointManager.loadLastCheckpoint();
     this.startLsn = this.currentLsn;
-
-    // Load test_decoding plugin
-    this.plugin = LogicalReplication.LoadPlugin('output/test_decoding');
   }
 
   async performInitialCopy() {
@@ -80,42 +76,56 @@ class ReplicationSubscriber {
 
       this.replicationStartTime = Date.now();
 
-      // Create logical replication stream
-      this.stream = new LogicalReplication({
-        host: config.postgres.host,
-        port: config.postgres.port,
-        database: config.postgres.database,
-        user: config.postgres.user,
-        password: config.postgres.password,
-      });
+      // Create logical replication service with pgoutput plugin
+      this.service = new LogicalReplicationService(
+        {
+          host: config.postgres.host,
+          port: config.postgres.port,
+          database: config.postgres.database,
+          user: config.postgres.user,
+          password: config.postgres.password,
+        },
+        {
+          acknowledge: {
+            auto: false,
+            timeoutSeconds: 10,
+          },
+        }
+      );
 
       console.log('Connected to PostgreSQL replication stream');
       console.log(`Subscribed to replication slot: ${config.replication.slot}`);
       console.log(`Starting from LSN: ${this.currentLsn}`);
       console.log('---');
 
-      // Handle incoming messages
-      this.stream.on('data', async (msg) => {
-        await this.handleMessage(msg);
+      // Create pgoutput plugin
+      const plugin = new PgoutputPlugin({
+        protoVersion: 1,
+        publicationNames: [config.replication.publication],
       });
 
-      this.stream.on('error', (error) => {
+      // Handle data events BEFORE subscribing
+      this.service.on('data', async (lsn, log) => {
+        await this.handleMessage(lsn, log);
+      });
+
+      // Handle heartbeat events
+      this.service.on('heartbeat', (lsn) => {
+        this.service.acknowledge(lsn);
+      });
+
+      // Handle error events
+      this.service.on('error', (error) => {
         console.error('Replication error:', error);
         if (!this.isShuttingDown) {
           setTimeout(() => this.startReplication(), 1000);
         }
       });
 
-      // Start streaming changes
-      this.stream.getChanges(
-        config.replication.slot,
-        this.currentLsn,
-        {
-          standbyMessageTimeout: 10,
-          includeXids: false,
-          includeTimestamp: true,
-        }
-      );
+      // Subscribe to replication slot
+      // If starting from 0/0, let the library handle the starting position
+      const startLsn = this.currentLsn === '0/0' ? undefined : this.currentLsn;
+      await this.service.subscribe(plugin, config.replication.slot, startLsn);
 
       // Setup graceful shutdown
       this.setupShutdownHandlers();
@@ -127,26 +137,16 @@ class ReplicationSubscriber {
     }
   }
 
-  async handleMessage(msg) {
+  async handleMessage(lsn, log) {
     try {
-      this.currentLsn = msg.lsn;
+      this.currentLsn = lsn;
 
-      // Parse the text log data using test_decoding plugin
-      const log = (msg.log || '').toString('utf8');
-
-      if (!log || log.trim() === '') {
-        return;
-      }
-
-      // test_decoding plugin returns parsed data
-      const parsed = this.plugin.parse(log);
-
-      // Handle different message types based on parsed data
-      if (parsed.command === 'BEGIN') {
+      // Handle different message types from pgoutput
+      if (log.tag === 'begin') {
         this.transactionEvents = [];
-        console.log(`\n[TRANSACTION BEGIN] LSN: ${msg.lsn}`);
-      } else if (parsed.command === 'COMMIT') {
-        console.log(`[TRANSACTION COMMIT] LSN: ${msg.lsn}, Events: ${this.transactionEvents.length}`);
+        console.log(`\n[TRANSACTION BEGIN] LSN: ${lsn}`);
+      } else if (log.tag === 'commit') {
+        console.log(`[TRANSACTION COMMIT] LSN: ${lsn}, Events: ${this.transactionEvents.length}`);
 
         // Process all events in transaction
         let allSuccess = true;
@@ -159,10 +159,13 @@ class ReplicationSubscriber {
           }
         }
 
-        // Only acknowledge and checkpoint if all events processed successfully
+        // Only checkpoint and acknowledge if all events processed successfully
         if (allSuccess) {
-          await this.checkpointManager.saveCheckpoint(msg.lsn);
+          await this.checkpointManager.saveCheckpoint(lsn);
           this.lastCheckpointTime = Date.now();
+
+          // Send acknowledgment to PostgreSQL
+          this.service.acknowledge(lsn);
 
           // Check if we're in sync (only after initial copy is complete)
           if (this.initialCopyComplete && !this.isSynced) {
@@ -174,21 +177,42 @@ class ReplicationSubscriber {
 
         this.transactionEvents = [];
         this.displayStats();
-      } else if (parsed.command === 'INSERT' || parsed.command === 'UPDATE' || parsed.command === 'DELETE') {
-        // Collect events within transaction
-        // Convert test_decoding format to our event format
+      } else if (log.tag === 'insert' || log.tag === 'update' || log.tag === 'delete') {
+        // Extract table name from relation
+        const tableName = log.relation ? log.relation.name : null;
+
+        // The library already parses the data for us
         const event = {
-          tag: parsed.command.toLowerCase(),
-          table: parsed.table,
-          new: parsed.new,
-          old: parsed.old,
+          tag: log.tag,
+          table: tableName,
+          new: log.new || null,
+          old: log.old || null,
         };
         this.transactionEvents.push(event);
       }
     } catch (error) {
-      console.error('Error handling message:', error);
-      console.error('Log:', (msg.log || '').toString('utf8'));
+      console.error('Error handling message:', error.message);
+      console.error('LSN:', lsn);
+      console.error('Log tag:', log?.tag);
+      console.error('Table:', log?.relation?.name);
     }
+  }
+
+  tupleToObject(relation, tuple) {
+    if (!tuple || !relation || !tuple.columns || !relation.columns) {
+      return null;
+    }
+
+    const obj = {};
+    relation.columns.forEach((column, index) => {
+      if (tuple.columns && tuple.columns[index]) {
+        const value = tuple.columns[index];
+        obj[column.name] = value && value.value !== undefined ? value.value : null;
+      } else {
+        obj[column.name] = null;
+      }
+    });
+    return obj;
   }
 
   async checkSyncStatus() {
@@ -250,9 +274,9 @@ class ReplicationSubscriber {
       }
 
       // Close connections
-      if (this.stream) {
-        this.stream.stop();
-        console.log('Replication stream stopped');
+      if (this.service) {
+        await this.service.stop();
+        console.log('Replication service stopped');
       }
 
       if (this.client) {
