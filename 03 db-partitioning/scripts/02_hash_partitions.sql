@@ -5,9 +5,10 @@
 -- Partitioned by id (4 partitions for even distribution)
 
 -- Step 1: Create new partitioned table
+-- Note: UNIQUE constraints must include partition key, so we use indexes instead
 CREATE TABLE users_distributed_partitioned (
     id SERIAL,
-    username VARCHAR(50) NOT NULL UNIQUE,
+    username VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
     country_code VARCHAR(2),
     registration_date DATE DEFAULT CURRENT_DATE,

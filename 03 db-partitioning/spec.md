@@ -567,7 +567,7 @@ node load-data.js 1000 30   # Load data into re-partitioned tables
 **.env.example**:
 ```
 POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
+POSTGRES_PORT=5438
 POSTGRES_DB=partitiondb
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres

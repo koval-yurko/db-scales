@@ -2,11 +2,14 @@
   "name": "postgresql-partitioning-demo",
   "version": "1.0.0",
   "description": "Comprehensive PostgreSQL Partitioning demonstration with all partition types",
-  "main": "setup-database.js",
+  "main": "setup-base.js",
   "scripts": {
-    "setup": "node setup-database.js",
+    "setup": "node setup-base.js",
+    "partition": "node setup-partitions.js",
+    "reset": "node reset.js",
     "load": "node load-data.js",
-    "demo": "node demonstrate-queries.js"
+    "demo": "node demonstrate-queries.js",
+    "repartition": "node repartition.js"
   },
   "keywords": [
     "postgresql",

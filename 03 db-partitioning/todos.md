@@ -5,7 +5,7 @@
 - [x] Create docker-compose.yml
   - PostgreSQL 16-Alpine service
   - Container name: partition-demo-db
-  - Port 5432
+  - Port 5438
   - Volume: ./data
   - Health check: pg_isready
 
@@ -126,7 +126,7 @@
   - Graceful shutdown on Ctrl+C or timeout
   - Display summary statistics on exit
 
-- [ ] Implement demonstrate-queries.js
+- [x] Implement demonstrate-queries.js
   - Connect to database
   - For each partition type: run example query, show EXPLAIN ANALYZE
   - Range: SELECT with date range
@@ -139,13 +139,13 @@
 
 ## Phase 6: Re-partitioning SQL Scripts
 
-- [ ] Create scripts/repartition/10_add_new_partition.sql
+- [x] Create scripts/repartition/10_add_new_partition.sql
   - Add event_logs_2024_04 partition
   - Create indexes on new partition
   - Test insert into new partition
   - Display partition info
 
-- [ ] Create scripts/repartition/11_split_partition.sql
+- [x] Create scripts/repartition/11_split_partition.sql
   - Create temp table for event_logs_2024_02 data
   - Detach event_logs_2024_02
   - Create weekly partitions: week1, week2, week3, week4
@@ -153,7 +153,7 @@
   - Drop temp table and old partition
   - Verify data distribution
 
-- [ ] Create scripts/repartition/12_detach_archive.sql
+- [x] Create scripts/repartition/12_detach_archive.sql
   - Create event_logs_archive table (non-partitioned)
   - Add archived_at and archive_reason columns
   - Copy data from event_logs_2024_01
@@ -161,7 +161,7 @@
   - Drop detached partition
   - Verify archive table
 
-- [ ] Create scripts/repartition/13_migrate_strategy.sql
+- [x] Create scripts/repartition/13_migrate_strategy.sql
   - Create users_by_date (RANGE partitioned by registration_date)
   - Create quarterly partitions
   - Migrate data from users_distributed
@@ -169,7 +169,7 @@
   - Show partition distribution
   - Keep both tables for comparison
 
-- [ ] Create scripts/repartition/14_cleanup_repartition.sql
+- [x] Create scripts/repartition/14_cleanup_repartition.sql
   - Drop split partition changes (weekly partitions)
   - Recreate original event_logs_2024_02 partition
   - Drop archive table
@@ -179,7 +179,7 @@
 
 ## Phase 7: Re-partitioning Orchestrator
 
-- [ ] Implement repartition.js
+- [x] Implement repartition.js
   - Define scenarios object (add, split, detach, migrate, cleanup)
   - CLI interface: node repartition.js <scenario>
   - Display help with --help or no args
@@ -192,30 +192,30 @@
 
 ## Phase 8: Query Demo Scripts (SQL)
 
-- [ ] Create scripts/queries/20_range_queries.sql
+- [x] Create scripts/queries/20_range_queries.sql
   - Example queries demonstrating range partition pruning
   - Date range queries
   - Single month queries
   - Comments explaining expected behavior
 
-- [ ] Create scripts/queries/21_hash_queries.sql
+- [x] Create scripts/queries/21_hash_queries.sql
   - Example queries demonstrating hash partition pruning
   - Specific ID lookups
   - Comments on hash distribution
 
-- [ ] Create scripts/queries/22_list_queries.sql
+- [x] Create scripts/queries/22_list_queries.sql
   - Example queries demonstrating list partition pruning
   - Region-specific queries
   - Multi-region queries
 
-- [ ] Create scripts/queries/23_composite_queries.sql
+- [x] Create scripts/queries/23_composite_queries.sql
   - Example queries demonstrating multi-level pruning
   - Date + category combinations
   - Comments on pruning effectiveness
 
 ## Phase 9: Documentation
 
-- [ ] Write comprehensive README.md
+- [x] Write comprehensive README.md
   - Title and project description
   - Quick Start (5 minutes)
   - Prerequisites (Docker, Node.js 16+)
