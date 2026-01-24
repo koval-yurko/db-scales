@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  coordinator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: citus_coordinator
+    ports:
+      - "5440:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+    volumes:
+      - coordinator_data:/var/lib/postgresql/data
+    networks:
+      - citus_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: citus_worker1
+    ports:
+      - "5441:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+    volumes:
+      - worker1_data:/var/lib/postgresql/data
+    networks:
+      - citus_network
+    depends_on:
+      coordinator:
+        condition: service_healthy
+
+  worker2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: citus_worker2
+    ports:
+      - "5442:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+    volumes:
+      - worker2_data:/var/lib/postgresql/data
+    networks:
+      - citus_network
+    depends_on:
+      coordinator:
+        condition: service_healthy
+
+  # Third worker (available but not registered initially)
+  worker3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: citus_worker3
+    ports:
+      - "5443:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+    volumes:
+      - worker3_data:/var/lib/postgresql/data
+    networks:
+      - citus_network
+    depends_on:
+      coordinator:
+        condition: service_healthy
+
+volumes:
+  coordinator_data:
+  worker1_data:
+  worker2_data:
+  worker3_data:
+
+networks:
+  citus_network:
+    driver: bridge
