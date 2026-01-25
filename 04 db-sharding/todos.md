@@ -6,7 +6,7 @@
 - [x] Create docker-compose.yml (coordinator + 3 workers)
 - [x] Create .env.example with environment variables
 - [x] Create package.json with npm scripts
-- [ ] Test cluster startup (`docker-compose up -d --build`)
+- [x] Test cluster startup (`docker-compose up -d --build`)
 
 ## Utility Scripts (utils/)
 
@@ -34,10 +34,10 @@
 - [x] Create load-data.js - Continuous data generator
 
 ### Verification
-- [ ] Tables created successfully
-- [ ] 10,000+ orders seeded
-- [ ] Citus extension NOT created yet
-- [ ] Baseline queries work correctly
+- [x] Tables created successfully
+- [x] 10,000+ orders seeded
+- [x] Citus extension NOT created yet
+- [x] Baseline queries work correctly
 
 ## Phase 2: Distribute Table
 
@@ -63,11 +63,11 @@
 - [x] Create reshard.js with `enable-citus` scenario
 
 ### Verification
-- [ ] Citus extension enabled
-- [ ] Workers registered and healthy
-- [ ] Tables distributed across workers
-- [ ] Shards visible in citus_shards
-- [ ] EXPLAIN shows distributed execution
+- [x] Citus extension enabled
+- [x] Workers registered and healthy
+- [x] Tables distributed across workers
+- [x] Shards visible in citus_shards
+- [x] EXPLAIN shows distributed execution
 
 ## Phase 3: Resharding
 
@@ -99,10 +99,10 @@
 - [x] Add `drain` scenario to reshard.js
 
 ### Verification
-- [ ] Third worker added successfully
-- [ ] Shards rebalanced across 3 workers
-- [ ] Tenant isolation works
-- [ ] Worker drain completes without data loss
+- [x] Third worker added successfully
+- [x] Shards rebalanced across 3 workers
+- [x] Tenant isolation works
+- [x] Worker drain completes without data loss
 
 ## Phase 4: Undistribute (Consolidate)
 
@@ -110,10 +110,10 @@
 - [x] Add `undistribute` scenario to reshard.js
 
 ### Verification
-- [ ] Table converted to regular PostgreSQL
-- [ ] All data consolidated on coordinator
-- [ ] Queries work on regular table
-- [ ] citus_tables returns empty
+- [x] Table converted to regular PostgreSQL
+- [x] All data consolidated on coordinator
+- [x] Queries work on regular table
+- [x] citus_tables returns empty
 
 ## Query Demonstration Scripts
 
@@ -159,7 +159,7 @@
 
 ## Testing & Validation
 
-- [ ] Run full demo cycle (`npm run all`)
-- [ ] Verify data integrity after each phase
-- [ ] Test queries return correct results at each phase
+- [x] Run full demo cycle (`npm run all`)
+- [x] Verify data integrity after each phase
+- [x] Test queries return correct results at each phase
 - [ ] Capture performance metrics for comparison

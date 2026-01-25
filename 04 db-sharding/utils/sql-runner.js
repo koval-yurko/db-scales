@@ -24,11 +24,19 @@ async function runSqlFile(client, filePath) {
   console.log(`Executing: ${filePath}`);
   console.log('='.repeat(60));
 
-  // Split by semicolons but handle edge cases
-  const statements = sql
-    .split(/;(?=(?:[^']*'[^']*')*[^']*$)/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'));
+  // Split by semicolons followed by newline (safer for multi-statement files)
+  const rawStatements = sql.split(/;\s*\n/);
+
+  const statements = rawStatements
+    .map(s => {
+      // Remove leading comment lines
+      const lines = s.split('\n');
+      while (lines.length > 0 && lines[0].trim().startsWith('--')) {
+        lines.shift();
+      }
+      return lines.join('\n').trim();
+    })
+    .filter(s => s.length > 0);
 
   for (const statement of statements) {
     if (!statement) continue;

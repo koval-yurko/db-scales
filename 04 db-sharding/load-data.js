@@ -5,7 +5,8 @@
  */
 
 const { getClient, runQuery } = require('./utils/sql-runner');
-const { config, generateOrder, generateOrderItem, selectUserForOrder, REGIONS } = require('./utils/data-generator');
+const { config } = require('./utils/config');
+const { generateOrder, generateOrderItem, selectUserForOrder, REGIONS } = require('./utils/data-generator');
 
 const INTERVAL_MS = parseInt(process.argv[2]) || 100;  // ms between inserts
 const DURATION_SEC = parseInt(process.argv[3]) || 60;  // seconds to run

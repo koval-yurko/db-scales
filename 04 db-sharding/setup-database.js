@@ -5,7 +5,8 @@
  */
 
 const { getClient, runSqlFile, runQuery } = require('./utils/sql-runner');
-const { config, REGIONS, generateUser, generateOrder, generateOrderItem, selectUserForOrder } = require('./utils/data-generator');
+const { config } = require('./utils/config');
+const { REGIONS, generateUser, generateOrder, generateOrderItem, selectUserForOrder } = require('./utils/data-generator');
 const { printShardStats } = require('./utils/shard-stats');
 
 async function seedUsers(client, count) {

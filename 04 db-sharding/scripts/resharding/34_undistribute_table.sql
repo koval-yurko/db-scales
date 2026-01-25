@@ -17,7 +17,8 @@ SELECT undistribute_table('order_items');
 SELECT undistribute_table('orders');
 
 -- Undistribute regions reference table
-SELECT undistribute_table('regions');
+-- Use cascade_via_foreign_keys to handle FK from users table
+SELECT undistribute_table('regions', cascade_via_foreign_keys := true);
 
 -- Verify tables are now regular PostgreSQL tables
 SELECT

@@ -1,30 +1,32 @@
 {
-  "name": "postgresql-sharding-demo",
-  "version": "1.0.0",
-  "description": "PostgreSQL Sharding with Citus - from regular table to distributed and back",
-  "scripts": {
-    "setup": "node setup-database.js",
-    "load": "node load-data.js",
-    "demo": "node demonstrate-queries.js",
-
-    "phase1": "npm run setup && npm run demo",
-    "phase2": "node reshard.js enable-citus && npm run demo",
-    "phase3": "node reshard.js add-worker && node reshard.js rebalance && npm run demo",
-    "phase4": "node reshard.js undistribute && npm run demo",
-
-    "enable-citus": "node reshard.js enable-citus",
-    "add-worker": "node reshard.js add-worker",
-    "rebalance": "node reshard.js rebalance",
-    "isolate": "node reshard.js isolate",
-    "drain": "node reshard.js drain",
-    "undistribute": "node reshard.js undistribute",
-
-    "all": "npm run phase1 && npm run phase2 && npm run phase3 && npm run phase4"
-  },
-  "keywords": ["postgresql", "citus", "sharding", "distributed"],
-  "license": "MIT",
-  "dependencies": {
-    "pg": "^8.11.3",
-    "dotenv": "^16.3.1"
-  }
+	"name": "postgresql-sharding-demo",
+	"version": "1.0.0",
+	"description": "PostgreSQL Sharding with Citus - from regular table to distributed and back",
+	"scripts": {
+		"setup": "node setup-database.js",
+		"load": "node load-data.js",
+		"demo": "node demonstrate-queries.js",
+		"phase1": "npm run setup && npm run demo",
+		"phase2": "node reshard.js enable-citus && npm run demo",
+		"phase3": "node reshard.js add-worker && node reshard.js rebalance && npm run demo",
+		"phase4": "node reshard.js undistribute && npm run demo",
+		"enable-citus": "node reshard.js enable-citus",
+		"add-worker": "node reshard.js add-worker",
+		"rebalance": "node reshard.js rebalance",
+		"isolate": "node reshard.js isolate",
+		"drain": "node reshard.js drain",
+		"undistribute": "node reshard.js undistribute",
+		"all": "npm run phase1 && npm run phase2 && npm run phase3 && npm run phase4"
+	},
+	"keywords": [
+		"postgresql",
+		"citus",
+		"sharding",
+		"distributed"
+	],
+	"license": "MIT",
+	"dependencies": {
+		"pg": "^8.11.3",
+		"dotenv": "^16.3.1"
+	}
 }

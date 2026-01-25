@@ -12,8 +12,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - coordinator_data:/var/lib/postgresql/data
+      - ./data/coordinator:/var/lib/postgresql/data
     networks:
       - citus_network
     healthcheck:
@@ -33,8 +34,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - worker1_data:/var/lib/postgresql/data
+      - ./data/worker1:/var/lib/postgresql/data
     networks:
       - citus_network
     depends_on:
@@ -52,8 +54,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - worker2_data:/var/lib/postgresql/data
+      - ./data/worker2:/var/lib/postgresql/data
     networks:
       - citus_network
     depends_on:
@@ -72,19 +75,14 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-sharding_demo}
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - worker3_data:/var/lib/postgresql/data
+      - ./data/worker3:/var/lib/postgresql/data
     networks:
       - citus_network
     depends_on:
       coordinator:
         condition: service_healthy
-
-volumes:
-  coordinator_data:
-  worker1_data:
-  worker2_data:
-  worker3_data:
 
 networks:
   citus_network:
