@@ -123,3 +123,75 @@ docker-compose down
 # Full reset (removes all data)
 docker-compose down -v
 ```
+
+
+## Results
+
+### Single DB (5,6 Gb)
+
+Users           1M
+Orders          10M
+Ordersitems     20M
+
+┌─────────┬────┬─────────────────────────────────────────┬───────────────┐
+│ (index) │ #  │ Title                                   │ Duration (ms) │
+├─────────┼────┼─────────────────────────────────────────┼───────────────┤
+│ 0       │ 1  │ 'Orders for user 42'                    │ '108.00'      │
+│ 1       │ 2  │ 'User 42 Statistics'                    │ '16.00'       │
+│ 2       │ 3  │ 'Colocated join (orders + order_items)' │ '13.00'       │
+│ 3       │ 4  │ 'Total order count'                     │ '1181.00'     │
+│ 4       │ 5  │ 'Revenue by Region'                     │ '2117.00'     │
+│ 5       │ 6  │ 'Orders by status'                      │ '885.00'      │
+│ 6       │ 7  │ 'Reference table join'                  │ '12.00'       │
+│ 7       │ 8  │ 'Local table join'                      │ '4.00'        │
+│ 8       │ 9  │ 'Multi-table join'                      │ '10.00'       │
+│ 9       │ 10 │ 'Overall Statistics'                    │ '25010.00'    │
+│ 10      │ 11 │ 'Top 10 Users by Order Count'           │ '8207.00'     │
+│ 11      │ 12 │ 'Orders by Date'                        │ '1993.00'     │
+└─────────┴────┴─────────────────────────────────────────┴───────────────┘
+
+### 2 Shards Single DB (5,6 Gb + 3.6 Gb + 3.6 Gb)
+
+Users           1M
+Orders          10M
+Ordersitems     20M
+
+┌─────────┬────┬─────────────────────────────────────────┬───────────────┐
+│ (index) │ #  │ Title                                   │ Duration (ms) │
+├─────────┼────┼─────────────────────────────────────────┼───────────────┤
+│ 0       │ 1  │ 'Orders for user 42'                    │ '15.00'       │
+│ 1       │ 2  │ 'User 42 Statistics'                    │ '4.00'        │
+│ 2       │ 3  │ 'Colocated join (orders + order_items)' │ '11.00'       │
+│ 3       │ 4  │ 'Total order count'                     │ '218.00'      │
+│ 4       │ 5  │ 'Revenue by Region'                     │ '1785.00'     │
+│ 5       │ 6  │ 'Orders by status'                      │ '339.00'      │
+│ 6       │ 7  │ 'Reference table join'                  │ '4.00'        │
+│ 7       │ 8  │ 'Local table join'                      │ '6.00'        │
+│ 8       │ 9  │ 'Multi-table join'                      │ '19.00'       │
+│ 9       │ 10 │ 'Overall Statistics'                    │ '8786.00'     │
+│ 10      │ 11 │ 'Top 10 Users by Order Count'           │ '896.00'      │
+│ 11      │ 12 │ 'Orders by Date'                        │ '2034.00'     │
+└─────────┴────┴─────────────────────────────────────────┴───────────────┘
+
+### 3 Shards Single DB (5,9 Gb + 2.9 Gb + 2.9 Gb + 2.3 Gb)
+
+Users           1M
+Orders          10M
+Ordersitems     20M
+
+┌─────────┬────┬─────────────────────────────────────────┬───────────────┐
+│ (index) │ #  │ Title                                   │ Duration (ms) │
+├─────────┼────┼─────────────────────────────────────────┼───────────────┤
+│ 0       │ 1  │ 'Orders for user 42'                    │ '7.00'        │
+│ 1       │ 2  │ 'User 42 Statistics'                    │ '5.00'        │
+│ 2       │ 3  │ 'Colocated join (orders + order_items)' │ '7.00'        │
+│ 3       │ 4  │ 'Total order count'                     │ '801.00'      │
+│ 4       │ 5  │ 'Revenue by Region'                     │ '2540.00'     │
+│ 5       │ 6  │ 'Orders by status'                      │ '409.00'      │
+│ 6       │ 7  │ 'Reference table join'                  │ '6.00'        │
+│ 7       │ 8  │ 'Local table join'                      │ '6.00'        │
+│ 8       │ 9  │ 'Multi-table join'                      │ '21.00'       │
+│ 9       │ 10 │ 'Overall Statistics'                    │ '10070.00'    │
+│ 10      │ 11 │ 'Top 10 Users by Order Count'           │ '2529.00'     │
+│ 11      │ 12 │ 'Orders by Date'                        │ '1694.00'     │
+└─────────┴────┴─────────────────────────────────────────┴───────────────┘

@@ -86,7 +86,7 @@ async function runExplainAnalyze(client, query, label = 'Query') {
   result.rows.forEach(row => console.log(row['QUERY PLAN']));
   console.log(`\nTotal time: ${duration}ms`);
 
-  return result;
+  return { result, duration };
 }
 
 module.exports = {

@@ -16,24 +16,63 @@
 
 const { getClient, runSqlFile, runQuery } = require('./utils/sql-runner');
 const { isCitusEnabled, printShardStats, getWorkerNodes } = require('./utils/shard-stats');
+const { config, getWorkerConnectionString } = require('./utils/config');
+const { Client } = require('pg');
 
 const SCENARIO = process.argv[2];
+
+async function enableCitusOnWorkers() {
+  console.log('\nEnabling Citus extension on worker nodes...');
+  
+  for (const workerName of ['worker1', 'worker2', 'worker3']) {
+    try {
+      const workerConfig = {
+        ...config.coordinator,
+        host: config.workers[workerName].host,
+        port: config.workers[workerName].port,
+      };
+      
+      const workerClient = new Client(workerConfig);
+      await workerClient.connect();
+      
+      console.log(`  Enabling Citus on ${workerName}...`);
+      await runSqlFile(workerClient, 'scripts/sharding/10b_enable_citus_workers.sql');
+      
+      await workerClient.end();
+      console.log(`  ✓ ${workerName} ready`);
+    } catch (err) {
+      console.error(`  ✗ Failed to enable Citus on ${workerName}: ${err.message}`);
+      throw err;
+    }
+  }
+}
 
 async function enableCitus(client) {
   console.log('\n' + '═'.repeat(60));
   console.log('PHASE 2: Enable Citus and Distribute Tables');
   console.log('═'.repeat(60));
 
-  // Check if already enabled
-  if (await isCitusEnabled(client)) {
-    console.log('\nCitus is already enabled. Checking distribution...');
+  // Check if already fully configured
+  const citusEnabled = await isCitusEnabled(client);
+  const workers = await getWorkerNodes(client);
+  
+  if (citusEnabled && workers.length >= 2) {
+    console.log('\nCitus is already enabled and workers are registered.');
     await printShardStats(client);
     return;
   }
 
-  // Step 1: Enable Citus extension
-  console.log('\nStep 1: Enabling Citus extension...');
-  await runSqlFile(client, 'scripts/sharding/10_enable_citus.sql');
+  // Step 1: Enable Citus extension on coordinator (if not already)
+  if (!citusEnabled) {
+    console.log('\nStep 1: Enabling Citus extension on coordinator...');
+    await runSqlFile(client, 'scripts/sharding/10_enable_citus.sql');
+  } else {
+    console.log('\n✓ Citus extension already enabled on coordinator');
+  }
+
+  // Step 1b: Enable Citus extension on workers
+  console.log('\nStep 1b: Enabling Citus extension on workers...');
+  await enableCitusOnWorkers();
 
   // Step 2: Add worker nodes
   console.log('\nStep 2: Adding worker nodes...');
