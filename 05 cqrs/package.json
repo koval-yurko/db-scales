@@ -1,0 +1,29 @@
+{
+  "name": "postgresql-cqrs-demo",
+  "version": "1.0.0",
+  "description": "PostgreSQL CQRS — E-Commerce Order Analytics with 3 sync strategies",
+  "scripts": {
+    "setup": "node setup-database.js",
+    "load": "node load-data.js",
+    "demo": "node demonstrate-queries.js",
+    "worker": "node sync-worker.js",
+
+    "phase1": "npm run setup && npm run demo",
+    "phase2": "node sync-models.js mat-views && npm run demo",
+    "phase3": "node sync-models.js triggers && npm run demo",
+    "phase4": "node sync-models.js notify && npm run demo",
+
+    "mat-views": "node sync-models.js mat-views",
+    "triggers": "node sync-models.js triggers",
+    "notify": "node sync-models.js notify",
+    "refresh": "node sync-models.js refresh",
+
+    "all": "npm run phase1 && npm run phase2 && npm run phase3 && npm run phase4"
+  },
+  "keywords": ["postgresql", "cqrs", "materialized-views", "triggers", "listen-notify"],
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
+  }
+}

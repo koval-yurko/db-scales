@@ -39,35 +39,35 @@ This project demonstrates **Command Query Responsibility Segregation (CQRS)** in
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                     CQRS E-COMMERCE ARCHITECTURE                        │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│          WRITE PATH                           READ PATH                  │
-│      (Normalized OLTP)                   (Denormalized Analytics)        │
-│                                                                          │
+│                                                                         │
+│          WRITE PATH                           READ PATH                 │
+│      (Normalized OLTP)                   (Denormalized Analytics)       │
+│                                                                         │
 │   ┌──────────────┐                       ┌────────────────────────┐     │
 │   │    users     │                       │ read_revenue_by_region │     │
 │   │  (5K rows)   │                       │  (10 rows - 1 per      │     │
 │   └──────────────┘                       │   region)              │     │
 │                                          └────────────────────────┘     │
 │   ┌──────────────┐         SYNC          ┌────────────────────────┐     │
-│   │   products   │      ═════════►       │   read_top_products   │     │
+│   │   products   │      ═════════►       │   read_top_products    │     │
 │   │  (100 rows)  │                       │  (100 rows - all       │     │
 │   └──────────────┘                       │   products ranked)     │     │
 │                                          └────────────────────────┘     │
 │   ┌──────────────┐                       ┌────────────────────────┐     │
-│   │   orders     │                       │  read_user_spending   │     │
-│   │ (100K rows)  │                       │  (5K rows - 1 per     │     │
-│   └──────────────┘                       │   user)               │     │
+│   │   orders     │                       │  read_user_spending    │     │
+│   │ (100K rows)  │                       │  (5K rows - 1 per      │     │
+│   └──────────────┘                       │   user)                │     │
 │                                          └────────────────────────┘     │
 │   ┌──────────────┐                       ┌────────────────────────┐     │
-│   │ order_items  │                       │   read_daily_stats    │     │
-│   │ (250K rows)  │                       │  (~365 rows - 1 per   │     │
-│   └──────────────┘                       │   day)                │     │
+│   │ order_items  │                       │   read_daily_stats     │     │
+│   │ (250K rows)  │                       │  (~365 rows - 1 per    │     │
+│   └──────────────┘                       │   day)                 │     │
 │                                          └────────────────────────┘     │
-│                                                                          │
+│                                                                         │
 │   Phase 2: Materialized Views  (REFRESH on demand, stale between)       │
 │   Phase 3: Triggers            (sync on each write, always consistent)  │
 │   Phase 4: LISTEN/NOTIFY       (async worker, eventual consistency)     │
-│                                                                          │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -84,56 +84,56 @@ This project demonstrates **Command Query Responsibility Segregation (CQRS)** in
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     SYNC STRATEGY COMPARISON                             │
+│                     SYNC STRATEGY COMPARISON                            │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Phase 2: MATERIALIZED VIEWS                                             │
-│  ───────────────────────────                                             │
-│                                                                          │
+│                                                                         │
+│  Phase 2: MATERIALIZED VIEWS                                            │
+│  ───────────────────────────                                            │
+│                                                                         │
 │   INSERT INTO orders ──► orders table         mat_view (STALE)          │
 │                                                  │                      │
 │   REFRESH MATERIALIZED VIEW ─────────────────────┘                      │
 │   (explicit, full recompute)        mat_view (FRESH)                    │
-│                                                                          │
+│                                                                         │
 │   + Simplest to set up                                                  │
 │   + No write overhead                                                   │
 │   - Stale between refreshes                                             │
 │   - Full recompute on each REFRESH (O(n) cost)                          │
-│                                                                          │
-│  Phase 3: TRIGGER-BASED SYNC                                             │
-│  ───────────────────────────                                             │
-│                                                                          │
-│   INSERT INTO orders ──► orders table                                    │
-│          │                                                               │
-│          └──► TRIGGER ──► UPDATE read_revenue_by_region                  │
-│                       ──► UPDATE read_top_products                       │
-│                       ──► UPDATE read_user_spending                      │
-│                       ──► UPDATE read_daily_stats                        │
-│                                                                          │
+│                                                                         │
+│  Phase 3: TRIGGER-BASED SYNC                                            │
+│  ───────────────────────────                                            │
+│                                                                         │
+│   INSERT INTO orders ──► orders table                                   │
+│          │                                                              │
+│          └──► TRIGGER ──► UPDATE read_revenue_by_region                 │
+│                       ──► UPDATE read_top_products                      │
+│                       ──► UPDATE read_user_spending                     │
+│                       ──► UPDATE read_daily_stats                       │
+│                                                                         │
 │   + Always consistent (same transaction)                                │
 │   + Incremental (O(1) per write)                                        │
 │   - Write overhead (4 extra UPDATEs per INSERT)                         │
 │   - Trigger logic can become complex                                    │
-│                                                                          │
-│  Phase 4: LISTEN/NOTIFY (ASYNC)                                          │
-│  ──────────────────────────────                                          │
-│                                                                          │
-│   INSERT INTO orders ──► orders table                                    │
-│          │                                                               │
+│                                                                         │
+│  Phase 4: LISTEN/NOTIFY (ASYNC)                                         │
+│  ──────────────────────────────                                         │
+│                                                                         │
+│   INSERT INTO orders ──► orders table                                   │
+│          │                                                              │
 │          └──► NOTIFY 'order_changes' ──► [channel]                      │
 │                                              │                          │
-│                                         sync-worker.js                   │
+│                                         sync-worker.js                  │
 │                                         (LISTEN 'order_changes')        │
 │                                              │                          │
-│                                    batch UPDATE read tables              │
+│                                    batch UPDATE read tables             │
 │                                    (every N ms or N events)             │
-│                                                                          │
+│                                                                         │
 │   + Minimal write overhead (just NOTIFY)                                │
 │   + Batched updates (efficient)                                         │
 │   + Read/write independently scalable                                   │
 │   - Eventually consistent (lag = batch interval)                        │
 │   - Requires background worker process                                  │
-│                                                                          │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -841,9 +841,9 @@ CREATE TRIGGER trg_item_notify
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     WRITE-SIDE TABLE RELATIONSHIPS                       │
+│                     WRITE-SIDE TABLE RELATIONSHIPS                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
+│                                                                         │
 │   ┌──────────────┐         ┌──────────────────┐                         │
 │   │   products   │         │      users       │                         │
 │   ├──────────────┤         ├──────────────────┤                         │
@@ -857,31 +857,31 @@ CREATE TRIGGER trg_item_notify
 │          │                          │                                   │
 │          │ FK: product_id           │ FK: user_id                       │
 │          │                          │                                   │
-│   ┌──────▼──────────────────────────▼─────────┐                         │
-│   │              orders                        │                         │
-│   ├────────────────────────────────────────────┤                         │
-│   │ id (PK, BIGSERIAL)                         │                         │
-│   │ user_id (FK → users.id)                    │                         │
-│   │ region                                      │                         │
-│   │ status                                      │                         │
-│   │ total_amount                                │                         │
-│   │ created_at                                  │                         │
-│   │ updated_at                                  │                         │
-│   └────────────────────┬───────────────────────┘                         │
+│   ┌──────▼──────────────────────────▼──────────┐                        │
+│   │              orders                        │                        │
+│   ├────────────────────────────────────────────┤                        │
+│   │ id (PK, BIGSERIAL)                         │                        │
+│   │ user_id (FK → users.id)                    │                        │
+│   │ region                                     │                        │
+│   │ status                                     │                        │
+│   │ total_amount                               │                        │
+│   │ created_at                                 │                        │
+│   │ updated_at                                 │                        │
+│   └────────────────────┬───────────────────────┘                        │
 │                        │                                                │
 │                        │ FK: order_id                                   │
 │                        │                                                │
-│              ┌─────────▼──────────────┐                                  │
-│              │      order_items       │                                  │
-│              ├────────────────────────┤                                  │
-│              │ id (PK, BIGSERIAL)     │                                  │
-│              │ order_id (FK → orders) │                                  │
-│              │ product_id (FK → prod) │                                  │
-│              │ quantity               │                                  │
-│              │ unit_price             │                                  │
-│              │ line_total             │                                  │
-│              └────────────────────────┘                                  │
-│                                                                          │
+│              ┌─────────▼──────────────┐                                 │
+│              │      order_items       │                                 │
+│              ├────────────────────────┤                                 │
+│              │ id (PK, BIGSERIAL)     │                                 │
+│              │ order_id (FK → orders) │                                 │
+│              │ product_id (FK → prod) │                                 │
+│              │ quantity               │                                 │
+│              │ unit_price             │                                 │
+│              │ line_total             │                                 │
+│              └────────────────────────┘                                 │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -889,32 +889,32 @@ CREATE TRIGGER trg_item_notify
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    READ MODEL DATA FLOW                                  │
+│                    READ MODEL DATA FLOW                                 │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
+│                                                                         │
 │   orders INSERT ──────────┬──────────────┬──────────────┐               │
 │                           │              │              │               │
 │                           ▼              ▼              ▼               │
-│              ┌────────────────┐ ┌────────────┐ ┌──────────────┐        │
-│              │ read_revenue_  │ │ read_user_ │ │ read_daily_  │        │
-│              │ by_region      │ │ spending   │ │ stats        │        │
-│              │                │ │            │ │              │        │
-│              │ Aggregates:    │ │ Per-user:  │ │ Per-day:     │        │
-│              │ SUM(amount)    │ │ SUM(spent) │ │ COUNT(orders)│        │
-│              │ COUNT(orders)  │ │ COUNT(ord) │ │ SUM(revenue) │        │
-│              │ AVG(value)     │ │ AVG(value) │ │ AVG(value)   │        │
-│              └────────────────┘ └────────────┘ └──────────────┘        │
-│                                                                          │
+│              ┌────────────────┐ ┌────────────┐ ┌──────────────┐         │
+│              │ read_revenue_  │ │ read_user_ │ │ read_daily_  │         │
+│              │ by_region      │ │ spending   │ │ stats        │         │
+│              │                │ │            │ │              │         │
+│              │ Aggregates:    │ │ Per-user:  │ │ Per-day:     │         │
+│              │ SUM(amount)    │ │ SUM(spent) │ │ COUNT(orders)│         │
+│              │ COUNT(orders)  │ │ COUNT(ord) │ │ SUM(revenue) │         │ 
+│              │ AVG(value)     │ │ AVG(value) │ │ AVG(value)   │         │ 
+│              └────────────────┘ └────────────┘ └──────────────┘         │
+│                                                                         │
 │   order_items INSERT ──────────────────┐                                │
 │                                        ▼                                │
-│                           ┌────────────────────┐                        │
-│                           │  read_top_products  │                        │
-│                           │                     │                        │
-│                           │  Per-product:       │                        │
-│                           │  SUM(qty_sold)      │                        │
-│                           │  SUM(revenue)       │                        │
-│                           └────────────────────┘                        │
-│                                                                          │
+│                           ┌─────────────────────┐                       │
+│                           │  read_top_products  │                       │
+│                           │                     │                       │
+│                           │  Per-product:       │                       │
+│                           │  SUM(qty_sold)      │                       │
+│                           │  SUM(revenue)       │                       │
+│                           └─────────────────────┘                       │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
