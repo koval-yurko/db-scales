@@ -42,19 +42,19 @@ This project demonstrates **Event Sourcing** combined with **CQRS** in PostgreSQ
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    EVENT SOURCING + CQRS ARCHITECTURE                    │
+│                    EVENT SOURCING + CQRS ARCHITECTURE                   │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   COMMAND SIDE (Write)                 QUERY SIDE (Read)                 │
-│   ════════════════════                 ═════════════════                 │
-│                                                                          │
+│                                                                         │
+│   COMMAND SIDE (Write)                 QUERY SIDE (Read)                │
+│   ════════════════════                 ═════════════════                │
+│                                                                         │
 │   ┌───────────────────┐               ┌───────────────────────┐         │
 │   │                   │    replay     │ proj_account_balances │         │
 │   │   account_events  │──────────────►│                       │         │
 │   │   (append-only)   │               │ Current balance,      │         │
 │   │                   │               │ totals, last tx date  │         │
 │   │   ┌─────────────┐ │               └───────────────────────┘         │
-│   │   │ event_id    │ │                                                  │
+│   │   │ event_id    │ │                                                 │
 │   │   │ account_id  │ │    replay     ┌───────────────────────┐         │
 │   │   │ event_type  │ │──────────────►│ proj_transaction_     │         │
 │   │   │ amount      │ │               │ history               │         │
@@ -64,27 +64,27 @@ This project demonstrates **Event Sourcing** combined with **CQRS** in PostgreSQ
 │   │   │ sequence_   │ │               │ counterparty,         │         │
 │   │   │   number    │ │               │ description           │         │
 │   │   │ created_at  │ │               └───────────────────────┘         │
-│   │   └─────────────┘ │                                                  │
+│   │   └─────────────┘ │                                                 │
 │   │                   │    replay     ┌───────────────────────┐         │
 │   │   500K events     │──────────────►│ proj_monthly_         │         │
 │   │   1K accounts     │               │ statements            │         │
 │   │                   │               │                       │         │
 │   │                   │               │ Monthly aggregates:   │         │
-│   │                   │   snapshot    │ opening/closing bal,  │         │
-│   │                   │──────────────►│ credits, debits       │         │
+│   │                   │               │ opening/closing bal,  │         │
+│   │                   │               │ credits, debits       │         │
 │   │                   │               └───────────────────────┘         │
-│   │                   │               ┌───────────────────────┐         │
+│   │                   │   snapshot    ┌───────────────────────┐         │
 │   │                   │──────────────►│ account_snapshots     │         │
 │   │                   │               │                       │         │
 │   │                   │               │ Checkpoint at seq N:  │         │
 │   └───────────────────┘               │ full projection state │         │
 │                                       └───────────────────────┘         │
-│                                                                          │
-│   Phase 2: Build projections from full event replay                      │
-│   Phase 3: Live triggers update projections on each INSERT               │
-│   Phase 4: Snapshots for fast projection rebuilds                        │
-│   Phase 5: Temporal queries + full projection rebuild                    │
-│                                                                          │
+│                                                                         │
+│   Phase 2: Build projections from full event replay                     │
+│   Phase 3: Live triggers update projections on each INSERT              │
+│   Phase 4: Snapshots for fast projection rebuilds                       │
+│   Phase 5: Temporal queries + full projection rebuild                   │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -102,16 +102,16 @@ This project demonstrates **Event Sourcing** combined with **CQRS** in PostgreSQ
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        EVENT LIFECYCLE                                    │
+│                        EVENT LIFECYCLE                                  │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   1. COMMAND: "Deposit $500 into account 42"                             │
-│                                                                          │
-│   2. VALIDATE:                                                           │
+│                                                                         │
+│   1. COMMAND: "Deposit $500 into account 42"                            │
+│                                                                         │
+│   2. VALIDATE:                                                          │
 │      - Account 42 exists and is active                                  │
 │      - Get current sequence_number for account 42                       │
-│                                                                          │
-│   3. APPEND EVENT:                                                       │
+│                                                                         │
+│   3. APPEND EVENT:                                                      │
 │      ┌─────────────────────────────────────────┐                        │
 │      │ INSERT INTO account_events              │                        │
 │      │   account_id: 42                        │                        │
@@ -124,28 +124,28 @@ This project demonstrates **Event Sourcing** combined with **CQRS** in PostgreSQ
 │      │     "reference": "SAL-2024-001"         │                        │
 │      │   }                                     │                        │
 │      └─────────────────────────────────────────┘                        │
-│                                                                          │
-│   4. TRIGGER (Phase 3): Update projections                               │
-│      ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│                                                                         │
+│   4. TRIGGER (Phase 3): Update projections                              │
+│      ┌──────────────────┐  ┌───────────────────┐  ┌──────────────────┐  │
 │      │ proj_account_    │  │ proj_transaction_ │  │ proj_monthly_    │  │
 │      │ balances         │  │ history           │  │ statements       │  │
 │      │                  │  │                   │  │                  │  │
 │      │ balance: 1500    │  │ credit: 500       │  │ total_credits:   │  │
 │      │ deposits: +500   │  │ description:      │  │   +500           │  │
 │      │ tx_count: +1     │  │ "Salary payment"  │  │ tx_count: +1     │  │
-│      └──────────────────┘  └──────────────────┘  └──────────────────┘  │
-│                                                                          │
-│   5. QUERY: "What is account 42's balance?"                              │
-│      → SELECT current_balance FROM proj_account_balances                 │
-│        WHERE account_id = 42;                                            │
-│      → Result: $1,500.00 (instant lookup)                                │
-│                                                                          │
-│   6. TEMPORAL QUERY: "What was account 42's balance on Jan 15?"          │
-│      → SELECT balance_after FROM account_events                          │
+│      └──────────────────┘  └───────────────────┘  └──────────────────┘  │
+│                                                                         │
+│   5. QUERY: "What is account 42's balance?"                             │
+│      → SELECT current_balance FROM proj_account_balances                │
+│        WHERE account_id = 42;                                           │
+│      → Result: $1,500.00 (instant lookup)                               │
+│                                                                         │
+│   6. TEMPORAL QUERY: "What was account 42's balance on Jan 15?"         │
+│      → SELECT balance_after FROM account_events                         │
 │        WHERE account_id = 42 AND created_at <= '2024-01-15 23:59:59'    │
-│        ORDER BY sequence_number DESC LIMIT 1;                            │
-│      → Result: $800.00 (point-in-time)                                   │
-│                                                                          │
+│        ORDER BY sequence_number DESC LIMIT 1;                           │
+│      → Result: $800.00 (point-in-time)                                  │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
