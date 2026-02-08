@@ -1,0 +1,30 @@
+{
+  "name": "postgresql-event-sourcing-demo",
+  "version": "1.0.0",
+  "description": "PostgreSQL Event Sourcing + CQRS — Banking Ledger with projections and snapshots",
+  "scripts": {
+    "setup": "node setup-database.js",
+    "load": "node load-data.js",
+    "demo": "node demonstrate-queries.js",
+
+    "phase1": "npm run setup && npm run demo",
+    "phase2": "node projections.js build && npm run demo",
+    "phase3": "node projections.js live-sync && npm run demo",
+    "phase4": "node projections.js snapshots && npm run demo",
+    "phase5": "node projections.js rebuild && npm run demo",
+
+    "build": "node projections.js build",
+    "live-sync": "node projections.js live-sync",
+    "snapshots": "node projections.js snapshots",
+    "rebuild": "node projections.js rebuild",
+    "temporal": "node projections.js temporal",
+
+    "all": "npm run phase1 && npm run phase2 && npm run phase3 && npm run phase4 && npm run phase5"
+  },
+  "keywords": ["postgresql", "event-sourcing", "cqrs", "projections", "snapshots", "temporal"],
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
+  }
+}
