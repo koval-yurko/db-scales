@@ -53,3 +53,61 @@ These run individual operations without the benchmark demo.
 - **Triggers**: Live projection updates on each new event INSERT
 
 See [spec.md](spec.md) for full specification.
+
+## Comparison
+
+SEED_ACCOUNTS=10000
+SEED_EVENTS=5000000
+Data 2.9 GB
+
+### Phase 1
+
+```
+Query 1: Single Account Balance
+───────────────────────────────
+  Event Store:  $991976.42  (19ms)
+
+Query 2: All Account Balances
+─────────────────────────────
+  Event Store:  10000 accounts  (22070ms)
+
+Query 3: Monthly Summary (Account 1)
+─────────────────────────────────────
+  Event Store:  13 months  (18ms)
+
+Query 4: Transaction History (Account 1, last 20)
+──────────────────────────────────────────────────
+  Event Store:  20 rows  (4ms)
+
+Query 5: Top 10 Accounts by Balance
+────────────────────────────────────
+  Event Store:  top=1352849.00  (7608ms)
+
+Query 6: Temporal — Balance 6 Months Ago (Account 1)
+────────────────────────────────────────────────────
+  Event Store:  $476985.23  (6ms)
+
+Query 7: Audit Trail (Account 1)
+─────────────────────────────────
+  Full audit trail: 2063 events  (7ms)
+
+Query 8: Transfer Chain Tracking
+────────────────────────────────
+  Transfer chain: 2 events  (9ms)
+    ACC-0987 transfer_sent        $3398.35  (TXF-000001)
+    ACC-2228 transfer_received    $3398.35  (TXF-000001)
+```
+
+### Phase 2
+
+projections: true, triggers: false, snapshots: false
+
+```
+  #   Query                         Event Store   Projection  Speedup
+  ─── ──────────────────────────── ──────────── ──────────── ────────
+  1   Single Account Balance               37ms          0ms   370.0x
+  2   All Account Balances              26317ms          7ms  3759.6x
+  3   Monthly Summary                      15ms          3ms     5.0x
+  4   Transaction History (20)              3ms         71ms     0.0x
+  5   Top 10 by Balance                  8257ms          3ms  2752.3x
+```
