@@ -10,24 +10,40 @@ docker-compose up -d
 npm run all          # Run all 5 phases
 ```
 
-## Phases
+## Commands
 
-| Phase | Command | Description |
-|-------|---------|-------------|
-| 1 | `npm run phase1` | Create event store, seed 500K events, run direct queries |
-| 2 | `npm run phase2` | Build 3 projections from full event replay |
-| 3 | `npm run phase3` | Add live triggers, projections auto-update on INSERT |
-| 4 | `npm run phase4` | Take snapshots, demonstrate rebuild speedup |
-| 5 | `npm run phase5` | Temporal queries, full projection rebuild |
+### Run All Phases
 
-## Additional Commands
+| Command | Description |
+|---------|-------------|
+| `npm run all` | Run all 5 phases sequentially (setup → projections → triggers → snapshots → rebuild) |
 
-```bash
-npm run load            # Generate continuous events (Ctrl+C to stop)
-npm run demo            # Run query benchmark comparison
-npm run temporal        # Run temporal queries only
-docker-compose down -v  # Full reset
-```
+### Phase Commands
+
+Each phase command runs its phase logic followed by the query benchmark demo.
+
+| Command | Description |
+|---------|-------------|
+| `npm run phase1` | **Event Store** — Create tables, seed 1K accounts + 500K events, run direct event store queries |
+| `npm run phase2` | **Projections** — Replay all events into 3 projection tables (balances, history, statements), run benchmark |
+| `npm run phase3` | **Live Triggers** — Attach INSERT triggers to `account_events` so projections auto-update, run benchmark |
+| `npm run phase4` | **Snapshots** — Capture projection state as snapshots, demonstrate rebuild speedup, run benchmark |
+| `npm run phase5` | **Temporal + Rebuild** — Run temporal queries, drop and rebuild all projections from events, verify integrity |
+
+### Standalone Commands
+
+These run individual operations without the benchmark demo.
+
+| Command | Description |
+|---------|-------------|
+| `npm run setup` | Create event store tables and seed 500K events (Phase 1 only, no demo) |
+| `npm run build` | Create and populate projection tables from full event replay (Phase 2 only) |
+| `npm run live-sync` | Create trigger functions and attach them to `account_events` (Phase 3 only) |
+| `npm run snapshots` | Create snapshot table, capture snapshots for all accounts, run rebuild benchmark (Phase 4 only) |
+| `npm run rebuild` | Run temporal queries, truncate projections, rebuild from events, verify integrity (Phase 5 only) |
+| `npm run temporal` | Run temporal point-in-time balance queries only |
+| `npm run demo` | Run query performance comparison: event store vs projections with timing summary table |
+| `npm run load` | Continuously generate banking events until stopped. Usage: `npm run load -- [interval_ms] [duration_sec]` |
 
 ## Architecture
 

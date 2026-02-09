@@ -1,5 +1,5 @@
 const { runSQL, query, closePool } = require('./utils/sql-runner');
-const { generateAccounts, generateEvents } = require('./utils/data-generator');
+const { generateAccounts, generateEventBatches } = require('./utils/data-generator');
 const { printEventStoreStats } = require('./utils/event-store-stats');
 const { config } = require('./utils/config');
 
@@ -29,20 +29,14 @@ async function main() {
   await query(`SELECT setval('accounts_id_seq', ${accounts.length})`);
   console.log(`  Inserted ${accounts.length} accounts (${config.seed.checking} checking, ${config.seed.savings} savings, ${config.seed.business} business)`);
 
-  // Step 3: Generate events
-  console.log(`\nStep 3: Generating ${config.seed.events.toLocaleString()} events...`);
-  const genStart = Date.now();
-  const events = generateEvents(accounts, config.seed.events);
-  const genDuration = Date.now() - genStart;
-  console.log(`  Generated ${events.length.toLocaleString()} events in ${genDuration}ms`);
-
-  // Step 4: Batch insert events
-  console.log(`\nStep 4: Inserting events (batch size: ${BATCH_SIZE})...`);
+  // Step 3+4: Generate and insert events in batches (streaming to avoid OOM)
+  console.log(`\nStep 3: Generating and inserting ${config.seed.events.toLocaleString()} events in batches (batch size: ${BATCH_SIZE})...`);
   const insertStart = Date.now();
   let inserted = 0;
+  let nextLogAt = 50000;
+  const totalEvents = config.seed.events;
 
-  for (let i = 0; i < events.length; i += BATCH_SIZE) {
-    const batch = events.slice(i, i + BATCH_SIZE);
+  for (const batch of generateEventBatches(accounts, totalEvents, BATCH_SIZE)) {
     const values = batch.map(e =>
       `(${e.account_id}, '${e.event_type}', ${e.amount}, ${e.balance_after}, '${e.metadata.replace(/'/g, "''")}', ${e.sequence_number}, '${e.created_at.toISOString()}')`
     ).join(',\n    ');
@@ -53,16 +47,17 @@ async function main() {
     `);
 
     inserted += batch.length;
-    if (inserted % 50000 === 0 || inserted === events.length) {
+    if (inserted >= nextLogAt || inserted >= totalEvents) {
       const elapsed = ((Date.now() - insertStart) / 1000).toFixed(1);
       const rate = Math.round(inserted / (Date.now() - insertStart) * 1000);
-      console.log(`  Inserted ${inserted.toLocaleString()} / ${events.length.toLocaleString()} events (${elapsed}s, ${rate.toLocaleString()} events/sec)`);
+      console.log(`  Inserted ${inserted.toLocaleString()} / ${totalEvents.toLocaleString()} events (${elapsed}s, ${rate.toLocaleString()} events/sec)`);
+      nextLogAt += 50000;
     }
   }
 
   const insertDuration = ((Date.now() - insertStart) / 1000).toFixed(1);
   console.log(`\n  Total insert time: ${insertDuration}s`);
-  console.log(`  Average throughput: ${Math.round(events.length / (Date.now() - insertStart) * 1000).toLocaleString()} events/sec`);
+  console.log(`  Average throughput: ${Math.round(inserted / (Date.now() - insertStart) * 1000).toLocaleString()} events/sec`);
 
   // Step 5: Print stats
   await printEventStoreStats();

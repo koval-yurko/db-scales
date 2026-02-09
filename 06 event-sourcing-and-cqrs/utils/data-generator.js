@@ -73,11 +73,14 @@ function generateAccounts() {
   return accounts;
 }
 
-function generateEvents(accounts, totalEvents) {
+/**
+ * Generator that yields batches of events to avoid holding all events in memory.
+ * Each yield produces an array of event objects up to `batchSize` in length.
+ */
+function* generateEventBatches(accounts, totalEvents, batchSize = 10000) {
   const { hotAccountPct } = config.seed;
   const { deposit, withdrawal, transfer, fee, interest } = config.eventDist;
 
-  // Designate hot accounts (15% of accounts get 60% of events)
   const hotCount = Math.floor(accounts.length * hotAccountPct / 100);
   const hotAccountIds = accounts.slice(0, hotCount).map(a => a.id);
   const coldAccountIds = accounts.slice(hotCount).map(a => a.id);
@@ -85,10 +88,9 @@ function generateEvents(accounts, totalEvents) {
   // Per-account state tracking
   const accountState = {};
   for (const acc of accounts) {
-    accountState[acc.id] = { sequence: 0, balance: 0, opened: false };
+    accountState[acc.id] = { sequence: 0, balance: 0 };
   }
 
-  const events = [];
   let transferCounter = 0;
 
   // Start date: 12 months ago
@@ -98,7 +100,8 @@ function generateEvents(accounts, totalEvents) {
   const endDate = new Date();
   const dateRange = endDate.getTime() - startDate.getTime();
 
-  // First, open all accounts with initial deposits
+  // --- Batch 0: account_opened events ---
+  let batch = [];
   for (const acc of accounts) {
     const state = accountState[acc.id];
     const initialDeposit = acc.account_type === 'business'
@@ -109,10 +112,9 @@ function generateEvents(accounts, totalEvents) {
 
     state.sequence = 1;
     state.balance = initialDeposit;
-    state.opened = true;
 
     const openedAt = new Date(startDate.getTime() + Math.random() * dateRange * 0.05);
-    events.push({
+    batch.push({
       account_id: acc.id,
       event_type: 'account_opened',
       amount: initialDeposit,
@@ -121,12 +123,31 @@ function generateEvents(accounts, totalEvents) {
       metadata: JSON.stringify({ description: 'Account opened with initial deposit' }),
       created_at: openedAt,
     });
+
+    if (batch.length >= batchSize) {
+      yield batch;
+      batch = [];
+    }
+  }
+  if (batch.length > 0) {
+    yield batch;
+    batch = [];
   }
 
-  // Generate remaining events
+  // --- Remaining events, generated in chronological time slices ---
   const remaining = totalEvents - accounts.length;
   const hotEventCount = Math.floor(remaining * 0.6);
   const coldEventCount = remaining - hotEventCount;
+
+  // We generate events in time-slice order to get roughly chronological output
+  // without needing a global sort of all events.
+  const NUM_SLICES = 100;
+  const sliceDuration = dateRange / NUM_SLICES;
+  const hotPerSlice = Math.ceil(hotEventCount / NUM_SLICES);
+  const coldPerSlice = Math.ceil(coldEventCount / NUM_SLICES);
+
+  let hotRemaining = hotEventCount;
+  let coldRemaining = coldEventCount;
 
   function pickAccount(isHot) {
     const pool = isHot ? hotAccountIds : coldAccountIds;
@@ -140,7 +161,22 @@ function generateEvents(accounts, totalEvents) {
     if (roll < deposit + withdrawal + transfer) return 'transfer';
     if (roll < deposit + withdrawal + transfer + fee) return 'fee_charged';
     if (roll < deposit + withdrawal + transfer + fee + interest) return 'interest_applied';
-    return 'money_deposited'; // fallback
+    return 'money_deposited';
+  }
+
+  function createDepositEvent(accountId, state, timestamp) {
+    const amount = randomBetween(50, 5000);
+    state.sequence++;
+    state.balance = Math.round((state.balance + amount) * 100) / 100;
+    return [{
+      account_id: accountId,
+      event_type: 'money_deposited',
+      amount,
+      balance_after: state.balance,
+      sequence_number: state.sequence,
+      metadata: JSON.stringify({ description: randomElement(DEPOSIT_DESCRIPTIONS) }),
+      created_at: timestamp,
+    }];
   }
 
   function createEvent(accountId, timestamp) {
@@ -148,7 +184,6 @@ function generateEvents(accounts, totalEvents) {
     const eventType = pickEventType();
 
     if (eventType === 'transfer') {
-      // Pick a different account as counterparty
       let counterpartyId;
       do {
         counterpartyId = accounts[Math.floor(Math.random() * accounts.length)].id;
@@ -157,7 +192,6 @@ function generateEvents(accounts, totalEvents) {
       const counterState = accountState[counterpartyId];
       const maxTransfer = Math.min(state.balance * 0.5, 5000);
       if (maxTransfer < 10) {
-        // Not enough balance, do a deposit instead
         return createDepositEvent(accountId, state, timestamp);
       }
 
@@ -165,7 +199,6 @@ function generateEvents(accounts, totalEvents) {
       transferCounter++;
       const transferId = `TXF-${String(transferCounter).padStart(6, '0')}`;
 
-      // Sender event
       state.sequence++;
       state.balance = Math.round((state.balance - amount) * 100) / 100;
       const senderEvent = {
@@ -182,7 +215,6 @@ function generateEvents(accounts, totalEvents) {
         created_at: timestamp,
       };
 
-      // Receiver event
       counterState.sequence++;
       counterState.balance = Math.round((counterState.balance + amount) * 100) / 100;
       const receiverEvent = {
@@ -196,7 +228,7 @@ function generateEvents(accounts, totalEvents) {
           counterparty_account_id: accountId,
           transfer_id: transferId,
         }),
-        created_at: new Date(timestamp.getTime() + 1), // 1ms later
+        created_at: new Date(timestamp.getTime() + 1),
       };
 
       return [senderEvent, receiverEvent];
@@ -255,45 +287,46 @@ function generateEvents(accounts, totalEvents) {
       }];
     }
 
-    // Default: deposit
     return createDepositEvent(accountId, state, timestamp);
   }
 
-  function createDepositEvent(accountId, state, timestamp) {
-    const amount = randomBetween(50, 5000);
-    state.sequence++;
-    state.balance = Math.round((state.balance + amount) * 100) / 100;
-    return [{
-      account_id: accountId,
-      event_type: 'money_deposited',
-      amount,
-      balance_after: state.balance,
-      sequence_number: state.sequence,
-      metadata: JSON.stringify({ description: randomElement(DEPOSIT_DESCRIPTIONS) }),
-      created_at: timestamp,
-    }];
+  for (let slice = 0; slice < NUM_SLICES; slice++) {
+    const sliceStart = startDate.getTime() + slice * sliceDuration;
+
+    const hotInSlice = Math.min(hotPerSlice, hotRemaining);
+    const coldInSlice = Math.min(coldPerSlice, coldRemaining);
+
+    // Generate hot events for this time slice
+    for (let i = 0; i < hotInSlice; i++) {
+      const accountId = pickAccount(true);
+      const timestamp = new Date(sliceStart + Math.random() * sliceDuration);
+      const newEvents = createEvent(accountId, timestamp);
+      for (const e of newEvents) batch.push(e);
+      if (batch.length >= batchSize) {
+        yield batch;
+        batch = [];
+      }
+    }
+    hotRemaining -= hotInSlice;
+
+    // Generate cold events for this time slice
+    for (let i = 0; i < coldInSlice; i++) {
+      const accountId = pickAccount(false);
+      const timestamp = new Date(sliceStart + Math.random() * sliceDuration);
+      const newEvents = createEvent(accountId, timestamp);
+      for (const e of newEvents) batch.push(e);
+      if (batch.length >= batchSize) {
+        yield batch;
+        batch = [];
+      }
+    }
+    coldRemaining -= coldInSlice;
   }
 
-  // Generate hot events
-  for (let i = 0; i < hotEventCount; i++) {
-    const accountId = pickAccount(true);
-    const timestamp = new Date(startDate.getTime() + Math.random() * dateRange);
-    const newEvents = createEvent(accountId, timestamp);
-    events.push(...newEvents);
+  // Flush remaining
+  if (batch.length > 0) {
+    yield batch;
   }
-
-  // Generate cold events
-  for (let i = 0; i < coldEventCount; i++) {
-    const accountId = pickAccount(false);
-    const timestamp = new Date(startDate.getTime() + Math.random() * dateRange);
-    const newEvents = createEvent(accountId, timestamp);
-    events.push(...newEvents);
-  }
-
-  // Sort by created_at for realistic ordering
-  events.sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
-
-  return events;
 }
 
-module.exports = { generateAccounts, generateEvents };
+module.exports = { generateAccounts, generateEventBatches };
