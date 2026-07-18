@@ -1,0 +1,19 @@
+{
+  "name": "postgresql-eav-demo",
+  "version": "1.0.0",
+  "description": "PostgreSQL Classic typed-EAV — web-store product catalog with dynamic filtering, sorting, REST API and minimal UI",
+  "scripts": {
+    "setup": "node setup-database.js",
+    "demo": "node demonstrate-queries.js",
+    "seed": "node seed.js",
+    "api": "node server.js",
+    "all": "npm run setup && npm run demo"
+  },
+  "keywords": ["postgresql", "eav", "entity-attribute-value", "catalog", "dynamic-filtering"],
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2"
+  }
+}
