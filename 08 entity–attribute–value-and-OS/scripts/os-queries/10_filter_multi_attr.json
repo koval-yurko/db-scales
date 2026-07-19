@@ -1,0 +1,15 @@
+{
+  "_comment": "Multi-attribute filter — red AND size M AND price < 100 (t-shirts). In 07 this was one SQL self-join PER predicate; here it is one bool query. Add a predicate = add a filter clause, not a join.",
+  "track_total_hits": true,
+  "size": 20,
+  "query": {
+    "bool": {
+      "filter": [
+        { "term":  { "category": "tshirts" } },
+        { "term":  { "attr.color": "red" } },
+        { "term":  { "attr.size": "M" } },
+        { "range": { "price": { "lt": 100 } } }
+      ]
+    }
+  }
+}

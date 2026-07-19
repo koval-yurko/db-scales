@@ -1,0 +1,23 @@
+{
+  "name": "postgresql-eav-opensearch-demo",
+  "version": "1.0.0",
+  "description": "Hybrid EAV + OpenSearch — PostgreSQL as the write model / source of truth, OpenSearch as the faceted read model, kept in sync via a transactional outbox",
+  "scripts": {
+    "setup": "node setup-database.js",
+    "demo": "node demonstrate-queries.js",
+    "sync": "node sync.js",
+    "reindex": "node reindex.js",
+    "os:create": "node scripts/os/create-index.js",
+    "seed": "node seed.js",
+    "api": "node server.js",
+    "all": "npm run setup && npm run demo"
+  },
+  "keywords": ["postgresql", "opensearch", "eav", "cqrs", "search", "faceted-search", "outbox"],
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2",
+    "@opensearch-project/opensearch": "^2.5.0"
+  }
+}

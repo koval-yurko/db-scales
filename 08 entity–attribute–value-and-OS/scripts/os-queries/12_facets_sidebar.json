@@ -1,0 +1,11 @@
+{
+  "_comment": "Facets — every filter-sidebar count for t-shirts in ONE round trip. size:0 = counts only, no hits. In SQL EAV each of these would be a separate GROUP BY self-join.",
+  "size": 0,
+  "query": { "bool": { "filter": [ { "term": { "category": "tshirts" } } ] } },
+  "aggs": {
+    "color":    { "terms": { "field": "attr.color", "size": 50 } },
+    "size":     { "terms": { "field": "attr.size", "size": 50 } },
+    "material": { "terms": { "field": "attr.material", "size": 50 } },
+    "price":    { "stats": { "field": "price" } }
+  }
+}

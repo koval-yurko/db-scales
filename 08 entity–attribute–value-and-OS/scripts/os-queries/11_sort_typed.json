@@ -1,0 +1,6 @@
+{
+  "_comment": "Typed sort — laptops by RAM desc. Correct numeric ordering because attr.ram_gb is mapped as a numeric field (the OpenSearch equivalent of 07's typed value_number column).",
+  "size": 20,
+  "query": { "bool": { "filter": [ { "term": { "category": "laptops" } } ] } },
+  "sort": [ { "attr.ram_gb": "desc" } ]
+}

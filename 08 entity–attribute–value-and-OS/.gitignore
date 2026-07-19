@@ -1,0 +1,5 @@
+data/
+os-data/
+.env
+node_modules/
+*.log

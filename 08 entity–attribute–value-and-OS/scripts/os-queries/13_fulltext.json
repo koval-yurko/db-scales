@@ -1,0 +1,16 @@
+{
+  "_comment": "Full-text + filter + facets in one query. multi_match searches the analyzed name and text-attribute .text sub-fields; the filter/aggs still apply. This combination is impractical in SQL EAV.",
+  "size": 10,
+  "query": {
+    "bool": {
+      "must": [
+        { "multi_match": { "query": "ryzen ultrabook", "fields": ["name^2", "attr.cpu.text"], "operator": "and" } }
+      ],
+      "filter": [ { "term": { "category": "laptops" } } ]
+    }
+  },
+  "sort": [ { "price": "desc" } ],
+  "aggs": {
+    "cpu": { "terms": { "field": "attr.cpu", "size": 20 } }
+  }
+}
