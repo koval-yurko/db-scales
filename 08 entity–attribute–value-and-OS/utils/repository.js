@@ -4,6 +4,7 @@
 // lose an update or index an uncommitted product (§5.1).
 
 const { getPool, query } = require('./sql-runner');
+const { debug } = require('./log');
 
 const COLUMN_BY_TYPE = {
   text: 'value_text',
@@ -31,6 +32,7 @@ function typedColumns(type, value) {
 // Append an outbox event on an existing (open) transaction client.
 async function enqueueOutbox(client, productId, op) {
   await client.query(`INSERT INTO outbox (product_id, op) VALUES ($1, $2)`, [productId, op]);
+  debug('outbox', `enqueue product=${productId} op=${op} (same tx as the data change)`);
 }
 
 // ---- metadata ---------------------------------------------------------------
@@ -146,6 +148,7 @@ async function createProduct(body) {
     attrRows.push({ id: meta.id, ...typedColumns(meta.data_type, value) });
   }
 
+  debug('write', `createProduct sku=${sku} category=${category} attrs=${attrRows.length} → BEGIN`);
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
@@ -166,9 +169,11 @@ async function createProduct(body) {
     }
     await enqueueOutbox(client, productId, 'upsert');
     await client.query('COMMIT');
+    debug('write', `createProduct COMMIT product #${productId} (${attrRows.length} value rows + 1 outbox row)`);
     return getProduct(productId);
   } catch (e) {
     await client.query('ROLLBACK');
+    debug('write', `createProduct ROLLBACK sku=${sku}: ${e.message}`);
     throw e;
   } finally {
     client.release();
@@ -185,6 +190,7 @@ async function updateProduct(id, body) {
   const category = existing.rows[0].category;
   const allowed = await allowedAttributes(category);
 
+  debug('write', `updateProduct #${id} category=${category} core=[${['sku', 'name', 'price'].filter((f) => body[f] !== undefined).join(',') || '—'}] attrs=[${Object.keys(body.attributes || {}).join(',') || '—'}] → BEGIN`);
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
@@ -224,9 +230,11 @@ async function updateProduct(id, body) {
 
     await enqueueOutbox(client, id, 'upsert');
     await client.query('COMMIT');
+    debug('write', `updateProduct COMMIT #${id}`);
     return getProduct(id);
   } catch (e) {
     await client.query('ROLLBACK');
+    debug('write', `updateProduct ROLLBACK #${id}: ${e.message}`);
     throw e;
   } finally {
     client.release();
@@ -234,16 +242,19 @@ async function updateProduct(id, body) {
 }
 
 async function deleteProduct(id) {
+  debug('write', `deleteProduct #${id} → BEGIN`);
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     const { rowCount } = await client.query(`DELETE FROM products WHERE id = $1`, [id]);
-    if (rowCount === 0) { await client.query('ROLLBACK'); return false; }
+    if (rowCount === 0) { await client.query('ROLLBACK'); debug('write', `deleteProduct #${id} not found`); return false; }
     await enqueueOutbox(client, id, 'delete');
     await client.query('COMMIT');
+    debug('write', `deleteProduct COMMIT #${id} (product + cascaded values gone, outbox delete queued)`);
     return true;
   } catch (e) {
     await client.query('ROLLBACK');
+    debug('write', `deleteProduct ROLLBACK #${id}: ${e.message}`);
     throw e;
   } finally {
     client.release();
@@ -320,6 +331,7 @@ async function insertProductsBatch(products, { chunkSize = 1000, onProgress } = 
   } finally {
     client.release();
   }
+  debug('write', `insertProductsBatch done: ${inserted} products + ${inserted} outbox 'upsert' rows enqueued`);
   return inserted;
 }
 

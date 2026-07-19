@@ -172,6 +172,33 @@ Identical to `07` (`node seed.js --category laptops --count 500 --attrs cpu,ram_
 products enqueue outbox events — run `npm run sync` (or `npm run reindex`) to index
 them, or pass `?wait=1` from the API.
 
+## Debug logging
+
+Core operations emit tagged debug logs so you can watch the system react — a
+write, its outbox row, the sync worker draining it, and the OpenSearch read:
+
+```
+[write]  createProduct sku=LP-DBG-2 category=laptops attrs=4 → BEGIN
+[outbox] enqueue product=3053 op=upsert (same tx as the data change)
+[write]  createProduct COMMIT product #3053 (4 value rows + 1 outbox row)
+[sync]   claimed 1 pending outbox row(s) [id 3058..3058]
+[sync]   collapsed 1 rows → 1 distinct products (1 upsert, 0 delete)
+[sync]   pivoted 1 product(s) from PG into documents
+[sync]   _bulk applied → indexed 1, deleted 0
+[sync]   marked 1 outbox row(s) processed ✓
+[os]     index 'products' refreshed (new docs now searchable)
+[read]   GET /api/products → 1 OpenSearch query {...}
+[read]   OpenSearch responded: total=735 took=15ms
+```
+
+On by default. Control via the `DEBUG` env var (tags: `write · outbox · sync · os
+· api · read`):
+
+```bash
+DEBUG=0 npm run api            # silence debug logs
+DEBUG=sync,outbox npm run sync # only these tags
+```
+
 ## Trade-offs (vs `07`)
 
 - **Eventual consistency** — a just-written product may be absent from search for

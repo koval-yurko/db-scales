@@ -6,6 +6,7 @@ const { Client } = require('@opensearch-project/opensearch');
 const { config } = require('./config');
 const { query } = require('./sql-runner');
 const { buildIndexBody } = require('./os-mapping');
+const { debug } = require('./log');
 
 const INDEX = config.opensearch.index;
 let client;
@@ -33,10 +34,13 @@ async function createIndex({ force = false } = {}) {
   const os = getClient();
   if (await indexExists()) {
     if (!force) return { created: false, reason: 'already exists' };
+    debug('os', `dropping existing index '${INDEX}' (force)`);
     await os.indices.delete({ index: INDEX });
   }
-  const body = buildIndexBody(await attributeRows());
+  const rows = await attributeRows();
+  const body = buildIndexBody(rows);
   await os.indices.create({ index: INDEX, body });
+  debug('os', `created index '${INDEX}' with ${rows.length} typed attr fields (mapping from attribute metadata)`);
   return { created: true, index: INDEX };
 }
 
@@ -46,10 +50,12 @@ async function setBulkMode(on) {
     index: INDEX,
     body: { index: { refresh_interval: on ? '-1' : '1s' } },
   });
+  debug('os', `refresh_interval set to ${on ? "'-1' (bulk load, no refreshes)" : "'1s' (normal)"}`);
 }
 
 async function refresh() {
   await getClient().indices.refresh({ index: INDEX });
+  debug('os', `index '${INDEX}' refreshed (new docs now searchable)`);
 }
 
 async function docCount() {
@@ -68,8 +74,10 @@ async function waitForCluster({ retries = 30, delayMs = 1000 } = {}) {
   for (let i = 0; i < retries; i++) {
     try {
       await getClient().cluster.health({ wait_for_status: 'yellow', timeout: '5s' });
+      debug('os', `cluster ready at ${config.opensearch.node}`);
       return true;
     } catch (e) {
+      debug('os', `cluster not ready (attempt ${i + 1}/${retries}), retrying in ${delayMs}ms`);
       if (i === retries - 1) throw e;
       await new Promise((r) => setTimeout(r, delayMs));
     }

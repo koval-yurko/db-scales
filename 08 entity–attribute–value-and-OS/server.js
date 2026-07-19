@@ -12,6 +12,7 @@ const { generateProducts } = require('./utils/data-generator');
 const { drainAll } = require('./utils/sync-core');
 const os = require('./utils/os-client');
 const repo = require('./utils/repository');
+const { debug } = require('./utils/log');
 
 const app = express();
 app.use(express.json());
@@ -25,6 +26,7 @@ const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).cat
 // write reflected in search immediately (hides eventual-consistency lag for the UI).
 async function maybeWait(req) {
   if (req.query.wait === '1' || req.query.wait === 'true') {
+    debug('api', '?wait=1 → synchronously flushing outbox to OpenSearch before responding');
     await drainAll();
     await os.refresh();
     return true;
@@ -68,10 +70,14 @@ app.get('/api/attributes/:code/values', wrap(async (req, res) => {
 
 app.get('/api/products', wrap(async (req, res) => {
   const q = buildProductQuery(req.query, META);
+  debug('read', `GET /api/products → 1 OpenSearch query`, {
+    filters: q.filters, sort: q.body.sort, facets: q.body.aggs ? Object.keys(q.body.aggs) : [],
+  });
 
   const start = Date.now();
   const { body } = await os.getClient().search({ index: os.INDEX, body: q.body });
   const ms = Date.now() - start;
+  debug('read', `OpenSearch responded: total=${body.hits.total.value} took=${body.took}ms (wall ${ms}ms), returned ${body.hits.hits.length} hit(s)`);
 
   const out = {
     items: body.hits.hits.map((h) => docToItem(h._source)),
@@ -95,6 +101,7 @@ app.get('/api/products/:id', wrap(async (req, res) => {
   } catch (e) {
     if (!e.meta || e.meta.statusCode !== 404) throw e;
     // Not indexed yet — fall back to the source of truth.
+    debug('read', `product #${req.params.id} not in index (sync lag) → PostgreSQL fallback`);
     const p = await repo.getProduct(req.params.id);
     if (!p) return res.status(404).json({ error: 'not found' });
     return res.json({ id: p.id, sku: p.sku, name: p.name, price: p.price, category: p.category, attributes: p.attr });

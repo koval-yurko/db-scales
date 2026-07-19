@@ -227,7 +227,7 @@ async function saveProduct() {
   };
   const id = $('edit-id').value;
   // ?wait=1 flushes the outbox so the write is immediately searchable.
-  const qs = '?wait=1';
+  const qs = '?wait=0';
   try {
     const saved = id
       ? await api('/api/products/' + id + qs, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
